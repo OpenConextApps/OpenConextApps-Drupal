@@ -1,0 +1,161 @@
+<?php
+/**
+ * @file
+ * Install, update and uninstall functions for the surfconext module.
+ */
+
+/**
+ * Implements hook_install().
+ */
+function surfconext_install() {
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function surfconext_uninstall() {
+
+  // Get all variables that we use.
+  $result = db_select('variable', 'v')
+    ->fields('v', array('name'))
+    ->condition('name', db_like('surfconext_') . '%', 'LIKE')
+    ->execute();
+
+  // Now delete them.
+  foreach ($result as $row) {
+    variable_del($row->name);
+  }
+}
+
+/**
+ * Implements hook_requirements().
+ *
+ * Use requirements to ensure that all conditions for SURFconext are met.
+ */
+function surfconext_requirements($phase) {
+  $requirements = array();
+
+  if ($phase == 'runtime') {
+    // Auto load simpleSAML.
+    $autoloaded = SurfConext::autoload();
+
+    // Get the t() function.
+    $t = get_t();
+
+    // Check if autoload worked.
+    $requirements['surfconext_simplesaml_autoloaded'] = array(
+      'title' => $t('SURFconext SimpleSAML class'),
+      'severity' => $autoloaded ? REQUIREMENT_OK : REQUIREMENT_ERROR,
+      'value' => $t('SimpleSAML class autoloaded'),
+      'description' => $autoloaded ? '' : $t('The SimpleSAML library can not be loaded, please check the !link.', array('!link' => l($t('SURFconext settings'), 'admin/config/people/surfconext'))),
+    );
+
+    // Make sure the class for SimpleSAML is available.
+    if (class_exists('SimpleSAML_Configuration')) {
+      // Make sure SimpleSAML is not set on PHPSESSION.
+      $config = SimpleSAML_Configuration::getInstance();
+
+      $requirements['surfconext_session'] = array(
+        'title' => $t('SURFconext session'),
+        'severity' => $config->getValue('store.type') == 'phpsession' ? REQUIREMENT_ERROR : REQUIREMENT_OK,
+        'value' => $t('Is not using PHPSession (using %type)', array('%type' => $config->getValue('store.type'))),
+        'description' => $config->getValue('store.type') != 'phpsession' ? '' : $t('The SimpleSAML library can not use PHP cookie sessions, as these will conflict with the Drupal session. Use either SQL or memcache sessions'),
+      );
+    }
+
+    // Check if we can find the simplesaml library.
+    $simplesaml_found = file_exists(SurfConext::getSimpleSamlBasedir() . '/lib/_autoload.php');
+
+    $requirements['surfconext_simplesaml_found'] = array(
+      'title' => $t('SURFconext SimpleSAML library'),
+      'severity' => $simplesaml_found ? REQUIREMENT_OK : REQUIREMENT_ERROR,
+      'value' => 'Found simpleSAML library',
+      'description' => $simplesaml_found ? '' : $t('The SimpleSAML library can not be located or loaded, please check the !link.', array('!link' => l($t('SURFconext settings'), 'admin/config/people/surfconext'))),
+    );
+
+    if ($simplesaml_found) {
+      // Get the location of the metadata file.
+      $idp_filename = SurfConext::getSurfConextMetadataIdpFilename();
+
+      // Check if we filename is set and writable. The requirements hook will
+      // tell problems if the filename is not working.
+      $writable = !empty($idp_filename) || is_writable(dirname(drupal_realpath($idp_filename)));
+      $requirements['surfconext_setup'] = array(
+        'title' => $t('SURFconext metadata IdP file'),
+        'severity' => $writable ? REQUIREMENT_OK : REQUIREMENT_ERROR,
+        'value' => 'Location writable',
+        'description' => $writable ? '' : $t('The location for the IdP metadata is not writable or not setup correctly, please visit the SURFconext settings page !link.', array('!link' => l($t('here'), 'admin/config/people/surfconext'))),
+      );
+
+      // Check when metadata file was last updated.
+      $idp_file = @fopen($idp_filename, 'r');
+      if ($idp_file) {
+        $fstat = @fstat($idp_file);
+
+        // Compare modified time with now, may not differ longer than 48 hours.
+        if (!empty($fstat) && isset($fstat['mtime'])) {
+          $seconds_old = time() - $fstat['mtime'];
+          $is_expired = $seconds_old > (SurfConext::getSurfConextMetadataIdpFileMaxAge() * 60);
+
+          $requirements['surfconext_idp_age'] = array(
+            'title' => $t('SURFconext metadata IdP file age'),
+            'severity' => $is_expired ? REQUIREMENT_ERROR : REQUIREMENT_OK,
+            'value' => 'Is not expired',
+            'description' => $is_expired ? $t(
+              'The Metadata IdP file is expired (@days old), make sure the cron is running. Can not be older than @max_days days.',
+              array(
+                '@days' => round($seconds_old / (24 * 3600), 2),
+                '@max_days' => round(SurfConext::getSurfConextMetadataIdpFileMaxAge() / (24 * 60), 2),
+              )) : '',
+          );
+        }
+      }
+
+
+      // Get the SimpleSMAL version.
+      $saml_version = SurfConext::getSAMLVersion();
+      if (!empty($saml_version)) {
+        list($low, $high) = explode('.', $saml_version, 2);
+        $version_correct = $low >= 1 && $high >= 5;
+        $requirements['surfconext_saml_version'] = array(
+          'title' => $t('SURFconext SimpleSAML'),
+          'severity' => $version_correct ? REQUIREMENT_OK : REQUIREMENT_ERROR,
+          'value' => 'Location writable',
+          'description' => $version_correct ? '' : $t('Please upgrade SimpleSAMLphp. You are using %ssp_version', array('%ssp_version' => $saml_version)),
+        );
+      }
+    }
+
+    // Check if master switch is on.
+    $enabled = SurfConext::isEnabled();
+    $requirements['surfconext_enabled'] = array(
+      'title' => $t('SURFconext master switch'),
+      'severity' => $enabled ? REQUIREMENT_OK : REQUIREMENT_ERROR,
+      'value' => $enabled ? $t('Enabled') : $t('Disabled'),
+      'description' => $enabled ? '' : $t('You need to review the !link and enable SURFconext authentication. You can also disable the SURFconext module.', array('!link' => l($t('SURFconext settings'), 'admin/config/people/surfconext'))),
+    );
+
+    // Warn if users can register Drupal accounts, but we don't care if the
+    // master switch is off.
+    if ($enabled) {
+      $user_register = variable_get('user_register', USER_REGISTER_VISITORS_ADMINISTRATIVE_APPROVAL);
+      $requirements['surfconext_user_register'] = array(
+        'title' => $t('SURFconext and Drupal users'),
+        'severity' => $user_register == USER_REGISTER_ADMINISTRATORS_ONLY ? REQUIREMENT_OK : REQUIREMENT_ERROR,
+        'value' => $t('Only administrators can create Drupal user accounts.'),
+        'description' => $user_register == USER_REGISTER_ADMINISTRATORS_ONLY ? '' : $t('It is not recommended to allow visitors to register Drupal accounts on this website while SURFconext login is activated. You must only allow administrators to register accounts, !link.', array('!link' => l($t('here'), 'admin/config/people/accounts'))),
+      );
+    }
+  }
+
+  return $requirements;
+}
+
+/**
+ * Need to rebuild the registry.
+ */
+function surfconext_update_7000() {
+  // Rebuild the registry.
+  registry_rebuild();
+  cache_clear_all();
+}

@@ -1,0 +1,391 @@
+<?php
+/**
+ * @file
+ * SURFconext authentication module for Drupal.
+ *
+ * SURFconext Drupal module enables federated authentication on the SURFcontext
+ * service based on the SAML2.0 standard.
+ */
+
+/**
+ * Implements hook_menu().
+ */
+function surfconext_menu() {
+  $items = array();
+
+  $items['admin/config/people/surfconext'] = array(
+    'title' => 'SURFconext settings',
+    'description' => 'Control the various settings of SURFconext federated login.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('surfconext_settings_form'),
+    'access arguments' => array('administer surfconext'),
+    'type' => MENU_LOCAL_TASK | MENU_NORMAL_ITEM,
+  );
+
+  $items['user/login/surfconext'] = array(
+    'title' => 'Log in',
+    'access callback' => 'user_is_anonymous',
+    'page callback' => '_surfconext_login',
+    'type' => MENU_CALLBACK,
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_theme().
+ */
+function surfconext_theme() {
+  return array(
+    'surfconext_login_link' => array(
+      'file' => 'surfconext.theme.inc',
+      'variables' => array(),
+    ),
+    'surfconext_info' => array(
+      'file' => 'surfconext.theme.inc',
+      'variables' => array(),
+    ),
+  );
+}
+
+/**
+ * Implements hook_mediamosa_ck_acl_alter().
+ *
+ * The hook mediamosa_ck_acl_alter() is called by the MediaMosa CK module. Its
+ * used to extend calls to MediaMosa with ACL information of the current user.
+ *
+ * @param array $acl
+ *   Array contains the basic ACL settings for viewer;
+ *  - acl_domain
+ *    The domain of the user.
+ *  - acl_realm
+ *    Realm information of the user.
+ *  - acl_user_id
+ *    The current user.
+ *  - acl_group_id[]
+ *    Array of group ids.
+ */
+function surfconext_mediamosa_ck_acl_alter(&$acl) {
+
+  // Set realm.
+  // Get the SURFconext instance.
+  $surfconext = SurfConext::get();
+  if ($surfconext) {
+    // Get unique ID which we can use as realm.
+    $realm = $surfconext->getAttibuteUsedForRealm();
+    if (!empty($realm)) {
+      $acl['acl_realm'] = $realm;
+    }
+  }
+}
+
+/**
+ * Implements hook_mediamosa_sb_theme_user_url_alter().
+ *
+ * @param string $user_link
+ *   The user_link to change.
+ */
+function surfconext_mediamosa_sb_theme_user_url_alter(&$user_link) {
+  $user_link = 'user/login/surfconext';
+}
+
+/**
+ * Implements hook_help().
+ */
+function surfconext_help($path, $arg) {
+  switch ($path) {
+    case 'admin/config/people/surfconext':
+      return '<p>' . t('You can configure SimpleSAML and SURFconext settings on this form. However, default settings should work fine. You can enable the SimpleSAML login at the bottom of the form. Be careful though, enabling the switch will ') . '</p>';
+  }
+}
+
+/**
+ * Implements hook_permission().
+ */
+function surfconext_permission() {
+  return array(
+    'administer surfconext' => array(
+      'title' => t('Administer SURFconext'),
+      'description' => t('Warning: Give to trusted roles only; this permission has security implications.'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_cron().
+ */
+function surfconext_cron() {
+  // Call our cron for surfconext.
+  SurfConext::cronSurfConext();
+}
+
+/**
+ * Implements hook_init().
+ */
+function surfconext_init() {
+
+  // Get the SURFconext instance.
+  $surfconext = SurfConext::get();
+  if ($surfconext) {
+    // Init SURFconext.
+    $surfconext->init();
+  }
+}
+
+/**
+ * Implements hook_user_logout().
+ */
+function surfconext_user_logout($account) {
+
+  // Get the SURFconext instance.
+  $surfconext = SurfConext::get();
+  if ($surfconext) {
+    // Init SURFconext.
+    $surfconext->drupalLogoff($account);
+  }
+}
+
+/**
+ * Implements settings for the module.
+ *
+ * @see surfconext_settings_form_validate()
+ */
+function surfconext_settings_form() {
+
+  $form = array();
+
+  $form['simplesaml'] = array(
+    '#type' => 'fieldset',
+    '#title' => 'SimpleSAML settings',
+    '#collapsible' => TRUE,
+    '#collapsed' => FALSE,
+  );
+
+  $form['simplesaml']['surfconext_simplesaml_basedir'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Installation directory'),
+    '#default_value' => SurfConext::getSimpleSamlBasedir(),
+    '#description' => t("The base directory of simpleSAMLphp library. Absolute path with no trailing slash. Default: '/var/simplesamlphp'."),
+    '#required' => TRUE,
+  );
+
+  $form['simplesaml']['surfconext_authsource'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Authentication source for this SP'),
+    '#default_value' => variable_get('surfconext_authsource', 'default-sp'),
+    '#description' => t("The name of the source to use from /var/simplesamlphp/config/authsources.php. Default: 'default-sp'."),
+    '#required' => TRUE,
+  );
+
+  $form['surfconext'] = array(
+    '#type' => 'fieldset',
+    '#title' => 'SURFconext settings',
+    '#collapsible' => TRUE,
+    '#collapsed' => FALSE,
+  );
+
+  $form['surfconext']['surfconext_metadata_idp_url'] = array(
+    '#type' => 'textfield',
+    '#title' => t('SURFconext IdP metadata URL'),
+    '#default_value' => SurfConext::getSurfConextMetadataIdpUrl(),
+    '#description' => t("Enter the URL of the IdP metadata provider. Default: 'https://engine.surfconext.nl/authentication/idp/metadata'."),
+    '#required' => TRUE,
+  );
+
+  $form['surfconext']['surfconext_metadata_idp_filename'] = array(
+    '#type' => 'textfield',
+    '#title' => t('SURFconext IdP metadata file location'),
+    '#default_value' => SurfConext::getSurfConextMetadataIdpFilename(),
+    '#description' => t("This is the location where the file of the SURFconext IdP metadata is saved. Current real path location: '@realpath'. Default: 'private://saml20-idp-remote.php'. You might need to set the 'private file system path' when using private:// on the !link.",
+      array(
+        '@realpath' => drupal_realpath(SurfConext::getSurfConextMetadataIdpFilename()),
+        '!link' => l(t('file system configuration page'), 'admin/config/media/file-system'),
+      )
+    ),
+    '#required' => TRUE,
+  );
+
+  $form['surfconext']['surfconext_metadata_refresh_interval'] = array(
+    '#type' => 'textfield',
+    '#title' => t('SURFconext IdP refresh'),
+    '#default_value' => SurfConext::getSurfConextMetadataRefreshInterval(),
+    '#description' => t('The number of minutes before the SURFconext IdP metadata is refreshed. The SURFconext metadata expires every 48 hours, therefor its required to refresh the metadata at least every 48 hours. Default is 12 hours (720 minutes).'),
+    '#required' => TRUE,
+  );
+
+  $form['surfconext']['surfconext_metadata_refresh'] = array(
+    '#type' => 'submit',
+    '#value' => t('Refresh IdP metadata file'),
+  );
+
+  $form['enable'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Master switch'),
+    '#collapsible' => TRUE,
+    '#collapsed' => FALSE,
+  );
+
+  $form['enable']['surfconext_enabled'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Enable authentication via SURFconext'),
+    '#default_value' => SurfConext::isEnabled(),
+    '#description' => t('Enabling the SURFconext login will not disable the normal Drupal login. !link for Drupal to prevent user to login onto Drupal.', array('!link' => l(t('Disable account creation'), 'admin/config/people/accounts'))),
+  );
+
+  $form['#validate'][] = 'surfconext_settings_form_validate';
+  $form['#submit'][] = 'surfconext_settings_form_submit';
+
+  return system_settings_form($form);
+}
+
+/**
+ * Validate settings form.
+ *
+ * @see surfconext_settings_form()
+ */
+function surfconext_settings_form_validate($form, &$form_state) {
+  // Check if the IdP file is writable.
+  $surfconext_metadata_idp_filename = $form_state['values']['surfconext_metadata_idp_filename'];
+
+  // Is the location of the IdP file writeable?
+  if (!empty($surfconext_metadata_idp_filename) && !is_writable(dirname(drupal_realpath($surfconext_metadata_idp_filename)))) {
+    drupal_set_message(
+      t("Warning: the location of the IdP metadata file '@file' is not writable. If the file is located under private://, then check the file settings for the 'Private file system path' !here.",
+        array(
+          '@file' => drupal_realpath($surfconext_metadata_idp_filename),
+          '!here' => l(t('here'), 'admin/config/media/file-system'),
+        )
+      ),
+      'error'
+    );
+  }
+  else {
+    // Remove the last update time so file is pulled again.
+    variable_del('surfconext_metadata_ipd_last_update');
+  }
+}
+
+/**
+ * Process the submit from the settings form.
+ */
+function surfconext_settings_form_submit($form, &$form_state) {
+
+  // Get values.
+  $values = $form_state['values'];
+
+  // Refresh the metadata?
+  if ($values['op'] == t('Refresh IdP metadata file')) {
+    try {
+      // Refresh the metadata.
+      SurfConext::refreshIdPMetadataFile();
+
+      // Success.
+      drupal_set_message(t('Metadata refreshed'));
+    }
+    catch (Exception $e) {
+      drupal_set_message(t('Metadata failed to refresh, check logs', 'error'));
+    }
+
+    // Prevent the form from being saved.
+    drupal_goto('admin/config/people/surfconext');
+  }
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+function surfconext_form_alter(&$form, $form_state, $form_id) {
+
+  // Must be enabled.
+  if (!SurfConext::isEnabled()) {
+    return;
+  }
+
+  if (in_array($form_id, array('user_login_block', 'user_account_form'))) {
+    try {
+      $xml = simplexml_load_string('<?xml version="1.0" encoding="utf-8"?>' . $form['links']['#markup']);
+
+      $items = array();
+      foreach ($xml->xpath('ul/li') as $item) {
+        if (isset($item->a)) {
+          $title = (string) $item->a->attributes()->title;
+          $href = (string) $item->a->attributes()->href;
+          $text = (string) $item->a;
+          $items[] = l($text, $href, array('attributes' => array('title' => $title)));
+        }
+      }
+
+      // Add our item.
+      $items[] = l(t('SURFconext Log In'), 'user/login/surfconext', array('attributes' => array('title' => t('Login using the SURFconext federated login.'))));
+
+      // Use theme_item_list() again to rebuild.
+      $form['links'] = array('#markup' => theme('item_list', array('items' => $items)));
+    }
+    catch (Exception $e) {
+      surfconext::log('Unable to add federated SURFconext link to form.');
+    }
+  }
+}
+
+/**
+ * Implements hook_block_info().
+ */
+function surfconext_block_info() {
+  return array(
+    'surfconext_login_link' => array(
+      'info' => t('SURFconext login'),
+      'cache' => DRUPAL_NO_CACHE,
+    ),
+    'surfconext_info' => array(
+      'info' => t('SURFconext info'),
+      'cache' => DRUPAL_NO_CACHE,
+    ),
+  );
+}
+
+/**
+ * Implements hook_block_view().
+ */
+function surfconext_block_view($delta = '') {
+
+  if (!SurfConext::isEnabled()) {
+    // Exit without executing.
+    return;
+  }
+
+  $block = array();
+
+  switch ($delta) {
+    case 'surfconext_login_link':
+      $block = array(
+        'subject' => t('SURFconext login'),
+        'content' => array(
+          '#theme' => 'surfconext_login_link',
+        ),
+      );
+      break;
+
+    case 'surfconext_info':
+      $block = array(
+        'subject' => t('SURFconext authentication info'),
+        'content' => array(
+          '#theme' => 'surfconext_info',
+        ),
+      );
+      break;
+  }
+
+  return $block;
+}
+
+/**
+ * Show the SURFconext page.
+ */
+function _surfconext_login() {
+  // Get the SURFconext instance.
+  $surfconext = SurfConext::get();
+  if ($surfconext) {
+    // Show login page SURFconext.
+    $surfconext->login();
+  }
+}
