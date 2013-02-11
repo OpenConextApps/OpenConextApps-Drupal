@@ -20,6 +20,10 @@ class SurfConext {
    */
   protected static $surfconext = NULL;
 
+  const ATTRIBUTE_NAME_UNIQUE_ID = 'urn:mace:dir:attribute-def:uid';
+  const ATTRIBUTE_NAME_DISPLAYNAME = 'urn:mace:dir:attribute-def:displayName';
+  const ATTRIBUTE_NAME_MAIL = 'urn:mace:dir:attribute-def:mail';
+
   // -------------------------------------------------------------- Constructor.
   /**
    * The constructor.
@@ -193,23 +197,33 @@ class SurfConext {
   }
 
   /**
-   * Return with the attribute name for the unique name.
+   * Return with the attribute name for the unique ID.
    *
    * @return string
-   *   The name of the unique name.
+   *   The name of the unique id.
    */
   public static function getAttributeNameUniqueID() {
-    return variable_get('surfconext_attribute_name_unique_id', 'urn:mace:dir:attribute-def:eduPersonPrincipalName');
+    return variable_get('surfconext_attribute_name_unique_id', self::ATTRIBUTE_NAME_UNIQUE_ID);
   }
 
   /**
-   * Return with the attribute name for the unique name.
+   * Return with the attribute name for the display name.
    *
    * @return string
-   *   The name of the unique name.
+   *   The name of the display name.
+   */
+  public static function getAttributeNameDisplayName() {
+    return variable_get('surfconext_attribute_name_displayname', self::ATTRIBUTE_NAME_DISPLAYNAME);
+  }
+
+  /**
+   * Return with the attribute name for the mail address.
+   *
+   * @return string
+   *   The name of the mail address.
    */
   public static function getAttributeNameMail() {
-    return variable_get('surfconext_attribute_name_mail', 'urn:mace:dir:attribute-def:eduPersonPrincipalName');
+    return variable_get('surfconext_attribute_name_mail', self::ATTRIBUTE_NAME_MAIL);
   }
 
   /**

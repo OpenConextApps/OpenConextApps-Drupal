@@ -177,11 +177,39 @@ function surfconext_settings_form() {
     '#required' => TRUE,
   );
 
+  $form['surfconext_attributes'] = array(
+    '#type' => 'fieldset',
+    '#title' => 'SURFconext attributes',
+    '#collapsible' => TRUE,
+    '#collapsed' => FALSE,
+  );
+
+  $form['surfconext_attributes']['surfconext_attribute_name_unique_id'] = array(
+    '#type' => 'textfield',
+    '#title' => t('SURFconext attribute: UID'),
+    '#default_value' => SurfConext::getAttributeNameUniqueID(),
+    '#description' => t("Unique id, used for Drupal uid. Default: @default", array('@default' => SurfConext::ATTRIBUTE_NAME_UNIQUE_ID)),
+  );
+
+  $form['surfconext_attributes']['surfconext_attribute_name_displayname'] = array(
+    '#type' => 'textfield',
+    '#title' => t('SURFconext attribute: DisplayName'),
+    '#default_value' => SurfConext::getAttributeNameDisplayName(),
+    '#description' => t("Display Name, used for Drupal profile. Default: @default", array('@default' => SurfConext::ATTRIBUTE_NAME_DISPLAYNAME)),
+  );
+
+  $form['surfconext_attributes']['surfconext_attribute_name_mail'] = array(
+    '#type' => 'textfield',
+    '#title' => t('SURFconext attribute: Mail'),
+    '#default_value' => SurfConext::getAttributeNameMail(),
+    '#description' => t("E-Mail address, stored in Drupal profile. Default: @default", array('@default' => SurfConext::ATTRIBUTE_NAME_MAIL)),
+  );
+
   $form['surfconext'] = array(
     '#type' => 'fieldset',
     '#title' => 'SURFconext settings',
     '#collapsible' => TRUE,
-    '#collapsed' => FALSE,
+    '#collapsed' => TRUE,
     '#description' => t('SimpleSAMLphp needs an updated idp metadata file. You can fetch this file with !simplesaml_cron module, or you can use Drupal to update the file. In this case, fill in the following settings. For more information see the README.txt of this module.',
       array('!simplesaml_cron' => l(t('SimpleSAMLphp cron'), 'http://simplesamlphp.org/docs/stable/simplesamlphp-automated_metadata'))),
   );
