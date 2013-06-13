@@ -427,8 +427,6 @@ $metadata[\'' . $url . '\'] = ' . var_export($entity_metadata, TRUE) . ";\n";
 
     watchdog('user', 'Session closed for %name.', array('%name' => $user->name));
 
-    module_invoke_all('user_logout', $user);
-
     // Destroy the current session, and reset $user to the anonymous user.
     session_destroy();
 
