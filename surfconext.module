@@ -177,11 +177,41 @@ function surfconext_settings_form() {
     '#required' => TRUE,
   );
 
+  $form['surfconext_attributes'] = array(
+    '#type' => 'fieldset',
+    '#title' => 'SURFconext attributes',
+    '#collapsible' => TRUE,
+    '#collapsed' => FALSE,
+  );
+
+  $form['surfconext_attributes']['surfconext_attribute_name_unique_id'] = array(
+    '#type' => 'textfield',
+    '#title' => t('SURFconext attribute: UID'),
+    '#default_value' => SurfConext::getAttributeNameUniqueID(),
+    '#description' => t("Unique id, used for Drupal uid. Default: @default", array('@default' => SurfConext::ATTRIBUTE_NAME_UNIQUE_ID)),
+  );
+
+  $form['surfconext_attributes']['surfconext_attribute_name_displayname'] = array(
+    '#type' => 'textfield',
+    '#title' => t('SURFconext attribute: DisplayName'),
+    '#default_value' => SurfConext::getAttributeNameDisplayName(),
+    '#description' => t("Display Name, used for Drupal profile. Default: @default", array('@default' => SurfConext::ATTRIBUTE_NAME_DISPLAYNAME)),
+  );
+
+  $form['surfconext_attributes']['surfconext_attribute_name_mail'] = array(
+    '#type' => 'textfield',
+    '#title' => t('SURFconext attribute: Mail'),
+    '#default_value' => SurfConext::getAttributeNameMail(),
+    '#description' => t("E-Mail address, stored in Drupal profile. Default: @default", array('@default' => SurfConext::ATTRIBUTE_NAME_MAIL)),
+  );
+
   $form['surfconext'] = array(
     '#type' => 'fieldset',
     '#title' => 'SURFconext settings',
     '#collapsible' => TRUE,
-    '#collapsed' => FALSE,
+    '#collapsed' => TRUE,
+    '#description' => t('SimpleSAMLphp needs an updated idp metadata file. You can fetch this file with !simplesaml_cron module, or you can use Drupal to update the file. In this case, fill in the following settings. For more information see the README.txt of this module.',
+      array('!simplesaml_cron' => l(t('SimpleSAMLphp cron'), 'http://simplesamlphp.org/docs/stable/simplesamlphp-automated_metadata'))),
   );
 
   $form['surfconext']['surfconext_metadata_idp_url'] = array(
@@ -189,7 +219,6 @@ function surfconext_settings_form() {
     '#title' => t('SURFconext IdP metadata URL'),
     '#default_value' => SurfConext::getSurfConextMetadataIdpUrl(),
     '#description' => t("Enter the URL of the IdP metadata provider. Default: 'https://engine.surfconext.nl/authentication/idp/metadata'."),
-    '#required' => TRUE,
   );
 
   $form['surfconext']['surfconext_metadata_idp_filename'] = array(
@@ -202,7 +231,6 @@ function surfconext_settings_form() {
         '!link' => l(t('file system configuration page'), 'admin/config/media/file-system'),
       )
     ),
-    '#required' => TRUE,
   );
 
   $form['surfconext']['surfconext_metadata_refresh_interval'] = array(
@@ -210,7 +238,6 @@ function surfconext_settings_form() {
     '#title' => t('SURFconext IdP refresh'),
     '#default_value' => SurfConext::getSurfConextMetadataRefreshInterval(),
     '#description' => t('The number of minutes before the SURFconext IdP metadata is refreshed. The SURFconext metadata expires every 48 hours, therefor its required to refresh the metadata at least every 48 hours. Default is 12 hours (720 minutes).'),
-    '#required' => TRUE,
   );
 
   $form['surfconext']['surfconext_metadata_refresh'] = array(
@@ -244,26 +271,29 @@ function surfconext_settings_form() {
  * @see surfconext_settings_form()
  */
 function surfconext_settings_form_validate($form, &$form_state) {
-  // Check if the IdP file is writable.
-  $surfconext_metadata_idp_filename = $form_state['values']['surfconext_metadata_idp_filename'];
+  if (isset($form_state['values']['surfconext_metadata_idp_filename'])) {
+    // Check if the IdP file is writable.
+    $surfconext_metadata_idp_filename = $form_state['values']['surfconext_metadata_idp_filename'];
 
-  // Is the location of the IdP file writeable?
-  if (!empty($surfconext_metadata_idp_filename) && !is_writable(dirname(drupal_realpath($surfconext_metadata_idp_filename)))) {
-    drupal_set_message(
-      t("Warning: the location of the IdP metadata file '@file' is not writable. If the file is located under private://, then check the file settings for the 'Private file system path' !here.",
-        array(
-          '@file' => drupal_realpath($surfconext_metadata_idp_filename),
-          '!here' => l(t('here'), 'admin/config/media/file-system'),
-        )
-      ),
-      'error'
-    );
-  }
-  else {
-    // Remove the last update time so file is pulled again.
-    variable_del('surfconext_metadata_ipd_last_update');
+    // Is the location of the IdP file writeable?
+    if (!empty($surfconext_metadata_idp_filename) && !is_writable(dirname(drupal_realpath($surfconext_metadata_idp_filename)))) {
+      drupal_set_message(
+        t("Warning: the location of the IdP metadata file '@file' is not writable. If the file is located under private://, then check the file settings for the 'Private file system path' !here.",
+          array(
+            '@file' => drupal_realpath($surfconext_metadata_idp_filename),
+            '!here' => l(t('here'), 'admin/config/media/file-system'),
+          )
+        ),
+        'error'
+      );
+    }
+    else {
+      // Remove the last update time so file is pulled again.
+      variable_del('surfconext_metadata_ipd_last_update');
+    }
   }
 }
+
 
 /**
  * Process the submit from the settings form.
@@ -387,5 +417,19 @@ function _surfconext_login() {
   if ($surfconext) {
     // Show login page SURFconext.
     $surfconext->login();
+  }
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+function surfconext_form_user_profile_form_alter(&$form, &$form_state, $form_id) {
+  global $user;
+  if ($user->uid != 1) {
+    $form['account']['pass']['#access'] = FALSE;
+    $form['account']['mail']['#access'] = FALSE;
+    $form['account']['mail']['#access'] = FALSE;
+    $form['account']['current_pass_required_values']['#access'] = FALSE;
+    $form['account']['current_pass']['#access'] = FALSE;
   }
 }

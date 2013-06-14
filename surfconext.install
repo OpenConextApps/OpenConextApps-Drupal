@@ -57,8 +57,8 @@ function surfconext_requirements($phase) {
 
       $requirements['surfconext_session'] = array(
         'title' => $t('SURFconext session'),
-        'severity' => $config->getValue('store.type') == 'phpsession' ? REQUIREMENT_ERROR : REQUIREMENT_OK,
-        'value' => $t('Is not using PHPSession (using %type)', array('%type' => $config->getValue('store.type'))),
+        'severity' => $config->getValue('store.type') == 'phpsession' ? REQUIREMENT_WARNING : REQUIREMENT_OK,
+        'value' => $t('Using %type', array('%type' => $config->getValue('store.type'))),
         'description' => $config->getValue('store.type') != 'phpsession' ? '' : $t('The SimpleSAML library can not use PHP cookie sessions, as these will conflict with the Drupal session. Use either SQL or memcache sessions'),
       );
     }
@@ -73,9 +73,9 @@ function surfconext_requirements($phase) {
       'description' => $simplesaml_found ? '' : $t('The SimpleSAML library can not be located or loaded, please check the !link.', array('!link' => l($t('SURFconext settings'), 'admin/config/people/surfconext'))),
     );
 
-    if ($simplesaml_found) {
-      // Get the location of the metadata file.
-      $idp_filename = SurfConext::getSurfConextMetadataIdpFilename();
+    // Get the location of the metadata file.
+    $idp_filename = SurfConext::getSurfConextMetadataIdpFilename();
+    if ($simplesaml_found && ($idp_filename != '')) {
 
       // Check if we filename is set and writable. The requirements hook will
       // tell problems if the filename is not working.
