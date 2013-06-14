@@ -24,7 +24,7 @@ class SurfConextException extends Exception {
   public function __construct($msg = '', $severity = self::SEVERITY_NORMAL, $log = TRUE) {
     $msg = empty($msg) ? 'SURFconext exception was thrown.' : $msg;
 
-    if ($severity >= self::SEVERITY_NORMAL || mediamosa_debug::is_debug()) {
+    if ($severity >= self::SEVERITY_NORMAL) {
       $log_serverity = $severity >= self::SEVERITY_HIGH ? WATCHDOG_CRITICAL : WATCHDOG_NOTICE;
 
       $levels = watchdog_severity_levels();
