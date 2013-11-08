@@ -8,6 +8,32 @@
  * Implements hook_install().
  */
 function surfconext_install() {
+  // Add displayname to user entity.
+  $field_name = 'display_name';
+  $field_info = field_info_field($field_name);
+  if (!$field_info) {
+    $field = array(
+      'field_name' => $field_name,
+      'type' => 'text',
+      'entity_types' => array('user'),
+      'cardinality' => 1,
+      'locked' => FALSE,
+      'format' => 'hidden',
+    );
+    $field = field_create_field($field);
+  }
+  $field_info_instance = field_info_instance('user', $field_name, 'user');
+  if (!$field_info_instance) {
+    $instance = array(
+      'field_name' => $field_name,
+      'bundle' => 'user',
+      'entity_type' => 'user',
+      'label' => t('Display Name'),
+      'description' => t('This is the displayName from SurfConext.'),
+      'required' => FALSE,
+    );
+    field_create_instance($instance);
+  }
 }
 
 /**
@@ -111,8 +137,7 @@ function surfconext_requirements($phase) {
         }
       }
 
-
-      // Get the SimpleSMAL version.
+      // Get the SimpleSAML version.
       $saml_version = SurfConext::getSAMLVersion();
       if (!empty($saml_version)) {
         list($low, $high) = explode('.', $saml_version, 2);
@@ -158,4 +183,11 @@ function surfconext_update_7000() {
   // Rebuild the registry.
   registry_rebuild();
   cache_clear_all();
+}
+
+/**
+ * Add a field in the user profile to store DisplayName.
+ */
+function surfconext_update_7001() {
+  surfconext_install();
 }

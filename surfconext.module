@@ -433,3 +433,17 @@ function surfconext_form_user_profile_form_alter(&$form, &$form_state, $form_id)
     $form['account']['current_pass']['#access'] = FALSE;
   }
 }
+
+/**
+ * Implements hook_user_login().
+ */
+function surfconext_user_login(&$edit, $account) {
+
+  $surfconext = SurfConext::get();
+  $display_name = $surfconext->getAttribute($surfconext->getAttributeNameDisplayName());
+
+  if (isset($account->display_name)) {
+    $account->display_name['und'][0]['value'] = $display_name;
+    user_save($account, array('field_myfield' => $account->display_name));
+  }
+}
