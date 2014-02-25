@@ -442,9 +442,19 @@ function surfconext_user_login(&$edit, $account) {
 
   $surfconext = SurfConext::get();
   $display_name = $surfconext->getAttribute($surfconext->getAttributeNameDisplayName());
+  $email = $surfconext->getAttribute($surfconext->getAttributeNameMail());
 
-  if (isset($account->display_name)) {
+  // Check if the DisplayName is changed since last login.
+  if ((isset($account->display_name) && $account->display_name != $display_name) ||
+    // Also if email is empty the fill it with the simplesaml value.
+    ((!isset($account->mail) && isset($email)))) {
+
     $account->display_name['und'][0]['value'] = $display_name;
-    user_save($account, array('field_myfield' => $account->display_name));
+    $edit = (array) $account;
+    $edit['display_name'] = $account->display_name;
+    if (!isset($account->mail)) {
+      $edit['mail'] = $email;
+    }
+    user_save($account, $edit);
   }
 }
