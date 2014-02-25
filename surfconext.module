@@ -50,20 +50,6 @@ function surfconext_theme() {
 
 /**
  * Implements hook_mediamosa_ck_acl_alter().
- *
- * The hook mediamosa_ck_acl_alter() is called by the MediaMosa CK module. Its
- * used to extend calls to MediaMosa with ACL information of the current user.
- *
- * @param array $acl
- *   Array contains the basic ACL settings for viewer;
- *  - acl_domain
- *    The domain of the user.
- *  - acl_realm
- *    Realm information of the user.
- *  - acl_user_id
- *    The current user.
- *  - acl_group_id[]
- *    Array of group ids.
  */
 function surfconext_mediamosa_ck_acl_alter(&$acl) {
 
@@ -81,9 +67,6 @@ function surfconext_mediamosa_ck_acl_alter(&$acl) {
 
 /**
  * Implements hook_mediamosa_sb_theme_user_url_alter().
- *
- * @param string $user_link
- *   The user_link to change.
  */
 function surfconext_mediamosa_sb_theme_user_url_alter(&$user_link) {
   $user_link = 'user/login/surfconext';
@@ -95,7 +78,7 @@ function surfconext_mediamosa_sb_theme_user_url_alter(&$user_link) {
 function surfconext_help($path, $arg) {
   switch ($path) {
     case 'admin/config/people/surfconext':
-      return '<p>' . t('You can configure SimpleSAML and SURFconext settings on this form. However, default settings should work fine. You can enable the SimpleSAML login at the bottom of the form. Be careful though, enabling the switch will ') . '</p>';
+      return '<p>' . t('You can configure SimpleSAML and SURFconext settings on this form. However, default settings should work fine. You can enable the SimpleSAML login at the bottom of the form. Be careful though, enabling the switch will.') . '</p>';
   }
 }
 
