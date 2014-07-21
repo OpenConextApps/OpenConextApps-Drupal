@@ -408,7 +408,8 @@ function _surfconext_login() {
  */
 function surfconext_form_user_profile_form_alter(&$form, &$form_state, $form_id) {
   global $user;
-  if ($user->uid != 1) {
+
+  if ((!in_array('administrator', $user->roles) && ($user->uid != 1))) {
     $form['account']['pass']['#access'] = FALSE;
     $form['account']['mail']['#access'] = FALSE;
     $form['account']['mail']['#access'] = FALSE;
@@ -422,7 +423,8 @@ function surfconext_form_user_profile_form_alter(&$form, &$form_state, $form_id)
  * Implements hook_user_login().
  */
 function surfconext_user_login(&$edit, $account) {
-  if ($account->uid == 1) {
+
+  if ((in_array('administrator', $account->roles) || ($account->uid == 1))) {
     return;
   }
 
