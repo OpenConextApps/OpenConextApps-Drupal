@@ -1,7 +1,7 @@
 name = "SURFconext authentication"
 description = "Enables users of SURFconext to login onto Drupal."
 package = "SURFconext"
-version = "7.x-1.1"
+version = "7.x-1.2"
 core = 7.x
 
 files[] = surfconext.class.inc
