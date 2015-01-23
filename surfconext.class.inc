@@ -541,7 +541,7 @@ $metadata[\'' . $url . '\'] = ' . var_export($entity_metadata, TRUE) . ";\n";
 
     // Not authenticated on SURFconext.
     // Super user is always allowed as Drupal user without SURFconext.
-    if ($user->uid == 1) {
+    if ((in_array('administrator', $user->roles) || ($user->uid == 1))) {
       return;
     }
 

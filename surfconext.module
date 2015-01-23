@@ -50,20 +50,6 @@ function surfconext_theme() {
 
 /**
  * Implements hook_mediamosa_ck_acl_alter().
- *
- * The hook mediamosa_ck_acl_alter() is called by the MediaMosa CK module. Its
- * used to extend calls to MediaMosa with ACL information of the current user.
- *
- * @param array $acl
- *   Array contains the basic ACL settings for viewer;
- *  - acl_domain
- *    The domain of the user.
- *  - acl_realm
- *    Realm information of the user.
- *  - acl_user_id
- *    The current user.
- *  - acl_group_id[]
- *    Array of group ids.
  */
 function surfconext_mediamosa_ck_acl_alter(&$acl) {
 
@@ -81,9 +67,6 @@ function surfconext_mediamosa_ck_acl_alter(&$acl) {
 
 /**
  * Implements hook_mediamosa_sb_theme_user_url_alter().
- *
- * @param string $user_link
- *   The user_link to change.
  */
 function surfconext_mediamosa_sb_theme_user_url_alter(&$user_link) {
   $user_link = 'user/login/surfconext';
@@ -95,7 +78,7 @@ function surfconext_mediamosa_sb_theme_user_url_alter(&$user_link) {
 function surfconext_help($path, $arg) {
   switch ($path) {
     case 'admin/config/people/surfconext':
-      return '<p>' . t('You can configure SimpleSAML and SURFconext settings on this form. However, default settings should work fine. You can enable the SimpleSAML login at the bottom of the form. Be careful though, enabling the switch will ') . '</p>';
+      return '<p>' . t('You can configure SimpleSAML and SURFconext settings on this form. However, default settings should work fine. You can enable the SimpleSAML login at the bottom of the form. Be careful though, enabling the switch will.') . '</p>';
   }
 }
 
@@ -425,11 +408,51 @@ function _surfconext_login() {
  */
 function surfconext_form_user_profile_form_alter(&$form, &$form_state, $form_id) {
   global $user;
-  if ($user->uid != 1) {
+
+  if ((!in_array('administrator', $user->roles) && ($user->uid != 1))) {
     $form['account']['pass']['#access'] = FALSE;
     $form['account']['mail']['#access'] = FALSE;
     $form['account']['mail']['#access'] = FALSE;
     $form['account']['current_pass_required_values']['#access'] = FALSE;
     $form['account']['current_pass']['#access'] = FALSE;
+    $form['display_name']['#access'] = FALSE;
+  }
+}
+
+/**
+ * Implements hook_user_login().
+ */
+function surfconext_user_login(&$edit, $account) {
+
+  if ((in_array('administrator', $account->roles) || ($account->uid == 1))) {
+    return;
+  }
+
+  $surfconext = SurfConext::get();
+  $display_name = $surfconext->getAttribute($surfconext->getAttributeNameDisplayName());
+  $email = $surfconext->getAttribute($surfconext->getAttributeNameMail());
+  $uid = $surfconext->getAttribute($surfconext->getAttributeNameUniqueID());
+
+  SurfConext::debug("User %user uid:%uid (email:%email) logged in. displayname: %displayname.", array(
+      '%user' => $account->name,
+      '%uid' => $uid,
+      '%email' => $email,
+      '%displayname' => $display_name,
+    ));
+
+  // Check if the DisplayName is changed since last login.
+  if (($account->display_name != $display_name) ||
+    // Also if email is empty the fill it with the simplesaml value.
+    ((empty($account->mail) && !empty($email)))) {
+
+    $account->display_name['und'][0]['value'] = $display_name;
+    $edit = (array) $account;
+    $edit['display_name'] = $account->display_name;
+    // For now we only update empty email fields, as email changes has
+    // more consequences.
+    if (empty($account->mail)) {
+      $edit['mail'] = $email;
+    }
+    user_save($account, $edit);
   }
 }
